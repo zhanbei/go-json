@@ -277,6 +277,8 @@ func BenchmarkTypeFieldsCache(b *testing.B) {
 		maxTypes = 1e3 // restrict cache sizes on builders
 	}
 
+	zibson := GetDefaultZibson()
+
 	// Dynamically generate many new types.
 	types := make([]reflect.Type, maxTypes)
 	fs := []reflect.StructField{{
@@ -290,7 +292,7 @@ func BenchmarkTypeFieldsCache(b *testing.B) {
 
 	// clearClear clears the cache. Other JSON operations, must not be running.
 	clearCache := func() {
-		fieldCache = sync.Map{}
+		zibson.ClearCaches()
 	}
 
 	// MissTypes tests the performance of repeated cache misses.
@@ -306,7 +308,7 @@ func BenchmarkTypeFieldsCache(b *testing.B) {
 					wg.Add(1)
 					go func(j int) {
 						for _, t := range ts[(j*len(ts))/nc : ((j+1)*len(ts))/nc] {
-							cachedTypeFields(GetDefaultZibson(), true, t)
+							getCachedTypeFieldsForEncoding(zibson, t)
 						}
 						wg.Done()
 					}(j)
@@ -322,12 +324,12 @@ func BenchmarkTypeFieldsCache(b *testing.B) {
 		// Pre-warm a cache of size nt.
 		clearCache()
 		for _, t := range types[:nt] {
-			cachedTypeFields(GetDefaultZibson(), true, t)
+			getCachedTypeFieldsForEncoding(zibson, t)
 		}
 		b.Run(fmt.Sprintf("HitTypes%d", nt), func(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-					cachedTypeFields(GetDefaultZibson(), true, types[0])
+					getCachedTypeFieldsForEncoding(zibson, types[0])
 				}
 			})
 		})
