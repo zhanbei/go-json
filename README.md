@@ -6,6 +6,6 @@ The customizable encoding/json package based on [zhanbei/golang-encoding-json](h
 
 ## Goals
 
-- [ ] Customizable/Different tags(`jsonFrom`, `jsonTo`) for decoding from and encoding to JSON string.
+- [ ] Customizable/Different tags(`fromJson`, `toJson`) for decoding from and encoding to JSON string.
 - [ ] Customizable JSON struct tag(`customizedJsonTag`), and customizable fall-back JSON struct tag(`json`).
 - [ ] Customizable conversion policy to JSON keys from field names of a struct.
