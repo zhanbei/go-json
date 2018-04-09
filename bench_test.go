@@ -306,7 +306,7 @@ func BenchmarkTypeFieldsCache(b *testing.B) {
 					wg.Add(1)
 					go func(j int) {
 						for _, t := range ts[(j*len(ts))/nc : ((j+1)*len(ts))/nc] {
-							cachedTypeFields(t)
+							cachedTypeFields(GetDefaultZibson(), true, t)
 						}
 						wg.Done()
 					}(j)
@@ -322,12 +322,12 @@ func BenchmarkTypeFieldsCache(b *testing.B) {
 		// Pre-warm a cache of size nt.
 		clearCache()
 		for _, t := range types[:nt] {
-			cachedTypeFields(t)
+			cachedTypeFields(GetDefaultZibson(), true, t)
 		}
 		b.Run(fmt.Sprintf("HitTypes%d", nt), func(b *testing.B) {
 			b.RunParallel(func(pb *testing.PB) {
 				for pb.Next() {
-					cachedTypeFields(types[0])
+					cachedTypeFields(GetDefaultZibson(), true, types[0])
 				}
 			})
 		})
