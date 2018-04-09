@@ -2,6 +2,7 @@ package json
 
 import (
 	"unicode"
+	"sync"
 )
 
 // The default configurations of Zibson.
@@ -65,7 +66,14 @@ type Zibson struct {
 	DefaultJsonTag string
 	// The conversion from field name to JSON key.
 	// By default, JSON key will be exactly the field name.
-	FieldNameToJsonKeyFunc func(fieldName string) string
+	FieldNameToJsonKeyFunc func(fieldName string) string `json:"-"`
+	// Caches will be cleared when fields of zibson changes.
+	// @see encode#typeEncoder().
+	EncodingCacheTypeToEncoderFunc sync.Map `json:"-"` // map[reflect.Type]encoderFunc
+	// @see encode#getCachedTypeFieldsForEncoding().
+	EncodingCacheTypeToTypeFields sync.Map `json:"-"` // map[reflect.Type][]field
+	// @see encode#getCachedTypeFieldsForEncoding().
+	DecodingCacheTypeToTypeFields sync.Map `json:"-"` // map[reflect.Type][]field
 }
 
 func NewZibson() *Zibson {
@@ -75,7 +83,16 @@ func NewZibson() *Zibson {
 		defaultCustomJsonTag,
 		defaultDefaultJsonTag,
 		defaultFieldNameToJsonKeyFunc,
+		sync.Map{},
+		sync.Map{},
+		sync.Map{},
 	}
+}
+
+func (m *Zibson) ClearCaches() {
+	m.EncodingCacheTypeToEncoderFunc = sync.Map{}
+	m.EncodingCacheTypeToTypeFields = sync.Map{}
+	m.DecodingCacheTypeToTypeFields = sync.Map{}
 }
 
 // Set the custom JSON tag for decoding from JSON and encoding to JSON.
@@ -83,12 +100,14 @@ func NewZibson() *Zibson {
 func (m *Zibson) SetFromAndToJsonTags(fromJsonTag, toJsonTag string) *Zibson {
 	m.FromJsonTag = fromJsonTag
 	m.ToJsonTag = toJsonTag
+	m.ClearCaches()
 	return m
 }
 
 // Set the custom JSON tag, which by default is empty.
 func (m *Zibson) SetCustomJsonTag(customJsonTag string) *Zibson {
 	m.CustomJsonTag = customJsonTag
+	m.ClearCaches()
 	return m
 }
 
@@ -101,10 +120,12 @@ func (m *Zibson) DisableDefaultJsonTag() *Zibson {
 // Set the default tag "json".
 func (m *Zibson) SetDefaultJsonTag(defaultJsonTag string) *Zibson {
 	m.DefaultJsonTag = defaultJsonTag
+	m.ClearCaches()
 	return m
 }
 
 func (m *Zibson) SetFieldNameToJsonKeyFunc(fieldNameToJsonKeyFunc func(fieldName string) string) *Zibson {
 	m.FieldNameToJsonKeyFunc = fieldNameToJsonKeyFunc
+	m.ClearCaches()
 	return m
 }
