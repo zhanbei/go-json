@@ -154,20 +154,26 @@ import (
 // handle them. Passing cyclic structures to Marshal will result in
 // an infinite recursion.
 //
-func Marshal(v interface{}) ([]byte, error) {
+func (m *Zibson) Marshal(v interface{}) ([]byte, error) {
 	e := &encodeState{}
-	err := e.marshal(v, encOpts{escapeHTML: true})
+	err := e.marshal(m, v, encOpts{escapeHTML: true})
 	if err != nil {
 		return nil, err
 	}
 	return e.Bytes(), nil
 }
 
+// Calls the corresponding method of the #mDefaultZibson.
+func Marshal(v interface{}) ([]byte, error) {
+	zibson := GetDefaultZibson()
+	return zibson.Marshal(v)
+}
+
 // MarshalIndent is like Marshal but applies Indent to format the output.
 // Each JSON element in the output will begin on a new line beginning with prefix
 // followed by one or more copies of indent according to the indentation nesting.
-func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
-	b, err := Marshal(v)
+func (m *Zibson) MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
+	b, err := m.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
@@ -177,6 +183,12 @@ func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// Calls the corresponding method of the #mDefaultZibson.
+func MarshalIndent(v interface{}, prefix, indent string) ([]byte, error) {
+	zibson := GetDefaultZibson()
+	return zibson.MarshalIndent(v, prefix, indent)
 }
 
 // HTMLEscape appends to dst the JSON-encoded src with <, >, &, U+2028 and U+2029
@@ -286,7 +298,7 @@ func newEncodeState() *encodeState {
 // can distinguish intentional panics from this package.
 type jsonError struct{ error }
 
-func (e *encodeState) marshal(v interface{}, opts encOpts) (err error) {
+func (e *encodeState) marshal(zibson *Zibson, v interface{}, opts encOpts) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if je, ok := r.(jsonError); ok {
@@ -296,7 +308,7 @@ func (e *encodeState) marshal(v interface{}, opts encOpts) (err error) {
 			}
 		}
 	}()
-	e.reflectValue(reflect.ValueOf(v), opts)
+	e.reflectValue(zibson, reflect.ValueOf(v), opts)
 	return nil
 }
 
@@ -323,8 +335,8 @@ func isEmptyValue(v reflect.Value) bool {
 	return false
 }
 
-func (e *encodeState) reflectValue(v reflect.Value, opts encOpts) {
-	valueEncoder(v)(e, v, opts)
+func (e *encodeState) reflectValue(zibson *Zibson, v reflect.Value, opts encOpts) {
+	valueEncoder(zibson, v)(e, v, opts)
 }
 
 type encOpts struct {
@@ -338,14 +350,14 @@ type encoderFunc func(e *encodeState, v reflect.Value, opts encOpts)
 
 var encoderCache sync.Map // map[reflect.Type]encoderFunc
 
-func valueEncoder(v reflect.Value) encoderFunc {
+func valueEncoder(zibson *Zibson, v reflect.Value) encoderFunc {
 	if !v.IsValid() {
 		return invalidValueEncoder
 	}
-	return typeEncoder(v.Type())
+	return typeEncoder(zibson, v.Type())
 }
 
-func typeEncoder(t reflect.Type) encoderFunc {
+func typeEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
 	if fi, ok := encoderCache.Load(t); ok {
 		return fi.(encoderFunc)
 	}
@@ -368,7 +380,7 @@ func typeEncoder(t reflect.Type) encoderFunc {
 	}
 
 	// Compute the real encoder and replace the indirect func with it.
-	f = newTypeEncoder(t, true)
+	f = newTypeEncoder(zibson, t, true)
 	wg.Done()
 	encoderCache.Store(t, f)
 	return f
@@ -381,13 +393,13 @@ var (
 
 // newTypeEncoder constructs an encoderFunc for a type.
 // The returned encoder only checks CanAddr when allowAddr is true.
-func newTypeEncoder(t reflect.Type, allowAddr bool) encoderFunc {
+func newTypeEncoder(zibson *Zibson, t reflect.Type, allowAddr bool) encoderFunc {
 	if t.Implements(marshalerType) {
 		return marshalerEncoder
 	}
 	if t.Kind() != reflect.Ptr && allowAddr {
 		if reflect.PtrTo(t).Implements(marshalerType) {
-			return newCondAddrEncoder(addrMarshalerEncoder, newTypeEncoder(t, false))
+			return newCondAddrEncoder(addrMarshalerEncoder, newTypeEncoder(zibson, t, false))
 		}
 	}
 
@@ -396,7 +408,7 @@ func newTypeEncoder(t reflect.Type, allowAddr bool) encoderFunc {
 	}
 	if t.Kind() != reflect.Ptr && allowAddr {
 		if reflect.PtrTo(t).Implements(textMarshalerType) {
-			return newCondAddrEncoder(addrTextMarshalerEncoder, newTypeEncoder(t, false))
+			return newCondAddrEncoder(addrTextMarshalerEncoder, newTypeEncoder(zibson, t, false))
 		}
 	}
 
@@ -416,15 +428,15 @@ func newTypeEncoder(t reflect.Type, allowAddr bool) encoderFunc {
 	case reflect.Interface:
 		return interfaceEncoder
 	case reflect.Struct:
-		return newStructEncoder(t)
+		return newStructEncoder(zibson, t)
 	case reflect.Map:
-		return newMapEncoder(t)
+		return newMapEncoder(zibson, t)
 	case reflect.Slice:
-		return newSliceEncoder(t)
+		return newSliceEncoder(zibson, t)
 	case reflect.Array:
-		return newArrayEncoder(t)
+		return newArrayEncoder(zibson, t)
 	case reflect.Ptr:
-		return newPtrEncoder(t)
+		return newPtrEncoder(zibson, t)
 	default:
 		return unsupportedTypeEncoder
 	}
@@ -610,7 +622,9 @@ func interfaceEncoder(e *encodeState, v reflect.Value, opts encOpts) {
 		e.WriteString("null")
 		return
 	}
-	e.reflectValue(v.Elem(), opts)
+	// FIXME Pass the zibson instance here.
+	zibson := GetDefaultZibson()
+	e.reflectValue(zibson, v.Elem(), opts)
 }
 
 func unsupportedTypeEncoder(e *encodeState, v reflect.Value, _ encOpts) {
@@ -643,14 +657,14 @@ func (se *structEncoder) encode(e *encodeState, v reflect.Value, opts encOpts) {
 	e.WriteByte('}')
 }
 
-func newStructEncoder(t reflect.Type) encoderFunc {
-	fields := cachedTypeFields(t)
+func newStructEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
+	fields := cachedTypeFields(zibson, true, t)
 	se := &structEncoder{
 		fields:    fields,
 		fieldEncs: make([]encoderFunc, len(fields)),
 	}
 	for i, f := range fields {
-		se.fieldEncs[i] = typeEncoder(typeByIndex(t, f.index))
+		se.fieldEncs[i] = typeEncoder(zibson, typeByIndex(t, f.index))
 	}
 	return se.encode
 }
@@ -688,7 +702,7 @@ func (me *mapEncoder) encode(e *encodeState, v reflect.Value, opts encOpts) {
 	e.WriteByte('}')
 }
 
-func newMapEncoder(t reflect.Type) encoderFunc {
+func newMapEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
 	switch t.Key().Kind() {
 	case reflect.String,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
@@ -698,7 +712,7 @@ func newMapEncoder(t reflect.Type) encoderFunc {
 			return unsupportedTypeEncoder
 		}
 	}
-	me := &mapEncoder{typeEncoder(t.Elem())}
+	me := &mapEncoder{typeEncoder(zibson, t.Elem())}
 	return me.encode
 }
 
@@ -737,7 +751,7 @@ func (se *sliceEncoder) encode(e *encodeState, v reflect.Value, opts encOpts) {
 	se.arrayEnc(e, v, opts)
 }
 
-func newSliceEncoder(t reflect.Type) encoderFunc {
+func newSliceEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
 	// Byte slices get special treatment; arrays don't.
 	if t.Elem().Kind() == reflect.Uint8 {
 		p := reflect.PtrTo(t.Elem())
@@ -745,7 +759,7 @@ func newSliceEncoder(t reflect.Type) encoderFunc {
 			return encodeByteSlice
 		}
 	}
-	enc := &sliceEncoder{newArrayEncoder(t)}
+	enc := &sliceEncoder{newArrayEncoder(zibson, t)}
 	return enc.encode
 }
 
@@ -765,8 +779,8 @@ func (ae *arrayEncoder) encode(e *encodeState, v reflect.Value, opts encOpts) {
 	e.WriteByte(']')
 }
 
-func newArrayEncoder(t reflect.Type) encoderFunc {
-	enc := &arrayEncoder{typeEncoder(t.Elem())}
+func newArrayEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
+	enc := &arrayEncoder{typeEncoder(zibson, t.Elem())}
 	return enc.encode
 }
 
@@ -782,8 +796,8 @@ func (pe *ptrEncoder) encode(e *encodeState, v reflect.Value, opts encOpts) {
 	pe.elemEnc(e, v.Elem(), opts)
 }
 
-func newPtrEncoder(t reflect.Type) encoderFunc {
-	enc := &ptrEncoder{typeEncoder(t.Elem())}
+func newPtrEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
+	enc := &ptrEncoder{typeEncoder(zibson, t.Elem())}
 	return enc.encode
 }
 
@@ -1065,7 +1079,7 @@ func (x byIndex) Less(i, j int) bool {
 // typeFields returns a list of fields that JSON should recognize for the given type.
 // The algorithm is breadth-first search over the set of structs to include - the top struct
 // and then any reachable anonymous structs.
-func typeFields(t reflect.Type) []field {
+func typeFields(zibson *Zibson, t reflect.Type, isEncoding bool) []field {
 	// Anonymous fields to explore at the current level and the next.
 	current := []field{}
 	next := []field{{typ: t}}
@@ -1109,7 +1123,22 @@ func typeFields(t reflect.Type) []field {
 					// Ignore unexported non-embedded fields.
 					continue
 				}
-				tag := sf.Tag.Get("json")
+				var tag string
+				if isEncoding {
+					if zibson.ToJsonTag != "" {
+						tag = sf.Tag.Get(zibson.ToJsonTag)
+					}
+				} else {
+					if zibson.FromJsonTag != "" {
+						tag = sf.Tag.Get(zibson.FromJsonTag)
+					}
+				}
+				if tag == "" && zibson.CustomJsonTag != "" {
+					tag = sf.Tag.Get(zibson.CustomJsonTag)
+				}
+				if tag == "" && zibson.DefaultJsonTag != "" {
+					tag = sf.Tag.Get(zibson.DefaultJsonTag)
+				}
 				if tag == "-" {
 					continue
 				}
@@ -1144,7 +1173,11 @@ func typeFields(t reflect.Type) []field {
 				if name != "" || !sf.Anonymous || ft.Kind() != reflect.Struct {
 					tagged := name != ""
 					if name == "" {
-						name = sf.Name
+						if zibson.FieldNameToJsonKeyFunc != nil {
+							name = zibson.FieldNameToJsonKeyFunc(sf.Name)
+						} else {
+							name = sf.Name
+						}
 					}
 					fields = append(fields, fillField(field{
 						name:      name,
@@ -1265,10 +1298,10 @@ func dominantField(fields []field) (field, bool) {
 var fieldCache sync.Map // map[reflect.Type][]field
 
 // cachedTypeFields is like typeFields but uses a cache to avoid repeated work.
-func cachedTypeFields(t reflect.Type) []field {
+func cachedTypeFields(zibson *Zibson, isEncoding bool, t reflect.Type) []field {
 	if f, ok := fieldCache.Load(t); ok {
 		return f.([]field)
 	}
-	f, _ := fieldCache.LoadOrStore(t, typeFields(t))
+	f, _ := fieldCache.LoadOrStore(t, typeFields(zibson, t, isEncoding))
 	return f.([]field)
 }

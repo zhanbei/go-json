@@ -67,10 +67,12 @@ func (dec *Decoder) Decode(v interface{}) error {
 	dec.d.init(dec.buf[dec.scanp : dec.scanp+n])
 	dec.scanp += n
 
+	// FIXME Pass the zibson instance here.
+	zibson := GetDefaultZibson()
 	// Don't save err from unmarshal into dec.err:
 	// the connection is still usable since we read a complete JSON
 	// object from it before the error happened.
-	err = dec.d.unmarshal(v)
+	err = dec.d.unmarshal(zibson, v)
 
 	// fixup token streaming state
 	dec.tokenValueEnd()
@@ -197,7 +199,9 @@ func (enc *Encoder) Encode(v interface{}) error {
 		return enc.err
 	}
 	e := newEncodeState()
-	err := e.marshal(v, encOpts{escapeHTML: enc.escapeHTML})
+	// FIXME Pass the zibson instance here.
+	zibson := GetDefaultZibson()
+	err := e.marshal(zibson, v, encOpts{escapeHTML: enc.escapeHTML})
 	if err != nil {
 		return err
 	}
