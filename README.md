@@ -89,7 +89,7 @@ func MustToJson(zibson *json.Zibson, v interface{}) string {
 	return string(bytes)
 }
 
-const mPersonJson = `{"_id":"No.1","age":8,"firstName":"Tom","lastName":"Sawyer","signature":"Bye, have a good day!"}`
+const mPersonJson = `{"_id":"No.1","age":8,"firstName":"Tom","lastName":"Sawyer","secret":"Hola everyone, I am alive!","signature":"Bye, have a good day!"}`
 
 func GetPerson() *Person {
 	person := new(Person)
@@ -110,6 +110,7 @@ func main() {
 	fmt.Println("person.ToIntegratedJson():", person.ToIntegratedJson())
 	fmt.Println("person.ToOptimizedJson():", person.ToOptimizedJson())
 	fmt.Println("person.ToDefaultJson():", person.ToDefaultJson())
+	fmt.Println("person.Secret ----->>>:", person.Secret)
 
 	// The exposed `json.Marshal()` uses a package-scope default instance of Zibson.
 	bytes, err := json.Marshal(person)
@@ -135,6 +136,7 @@ person.ToOriginalJson(): {"_id":"No.1","age":8,"firstName":"Tom","lastName":"Saw
 person.ToIntegratedJson(): {"_id":"No.1","age":8,"name":"Sawyer Sawyer","bio":"Bye, have a good day!"}
 person.ToOptimizedJson(): {"_id":"No.1","age":8,"bio":"Bye, have a good day!"}
 person.ToDefaultJson(): {"_id":"No.1","Age":8,"Bio":"Bye, have a good day!"}
+person.Secret ----->>>: Hola everyone, I am alive!
 ---->>
 person.ToDefaultJson() == json.Marshal(person): true
 ---->>
