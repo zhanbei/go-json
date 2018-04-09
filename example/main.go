@@ -1,20 +1,3 @@
-# Go Customizable Encoding/Json
-
-<!-- > 2018-04-08T19:54:12+0800 -->
-
-The customizable encoding/json package based on [`zhanbei/golang-encoding-json`][project-upstream] -- the [`encoding/json`][package-encoding-json] package separated from [`golang/go/master`][github-golang-go].
-
-## Installation
-
-```bash
-go get github.com/zhanbei/go-json
-```
-
-## Usage and Example
-
-The example codes can be found in [example/main.go](example/main.go).
-
-```go
 // Example script of using Zibson with core features.
 package main
 
@@ -125,11 +108,10 @@ func main() {
 	fmt.Println("ZibsonToIntegratedJson:", MustToJson(DefaultZibson, ZibsonToIntegratedJson))
 	fmt.Println("ZibsonToIntegratedJson:", MustToJson(OptimizedZibson, ZibsonToIntegratedJson))
 }
-```
 
-### Example Output
+/*
+Output:
 
-```text
 ---->>
 person.ToOriginalJson(): {"_id":"No.1","age":8,"firstName":"Tom","lastName":"Sawyer","bio":"Bye, have a good day!"}
 person.ToIntegratedJson(): {"_id":"No.1","age":8,"name":"Sawyer Sawyer","bio":"Bye, have a good day!"}
@@ -142,21 +124,4 @@ ZibsonToOriginalJson: {"FromJsonTag":"fromJson","ToJsonTag":"toJson","CustomJson
 ZibsonToOriginalJson: {"fromJsonTag":"fromJson","toJsonTag":"toJson","customJsonTag":"originalJson","defaultJsonTag":"json"}
 ZibsonToIntegratedJson: {"FromJsonTag":"fromJson","ToJsonTag":"toJson","CustomJsonTag":"integratedJson","DefaultJsonTag":"json"}
 ZibsonToIntegratedJson: {"fromJsonTag":"fromJson","toJsonTag":"toJson","customJsonTag":"integratedJson","defaultJsonTag":"json"}
-```
-
-## Features
-
-The goal is to add more customizable features while keeping compatible with the [`encoding/json`][package-encoding-json] package.
-
-- [x] Customizable/Different tags(`fromJson`, `toJson`) for decoding from and encoding to JSON string.
-- [x] Customizable JSON struct tag(i.e. `customizedJsonTag`)
-- [x] Customizable fall-back JSON struct tag(`json`).
-- [x] Customizable conversion policy to JSON keys from field names of a struct.
-
-### Differences with the [`encoding/json`][package-encoding-json] Package
-
-- By default, the tags `fromJson` and `toJson` will be checked first respectively, over the tag `json`.
-
-[github-golang-go]: https://github.com/golang/go "Go Source Code"
-[package-encoding-json]: https://github.com/golang/go/tree/master/src/encoding/json "Go Package `encoding/json`"
-[project-upstream]: https://github.com/zhanbei/golang-encoding-json "Project Upstream: Separated `encoding/json` Package"
+*/
