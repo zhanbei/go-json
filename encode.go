@@ -348,8 +348,6 @@ type encOpts struct {
 
 type encoderFunc func(e *encodeState, v reflect.Value, opts encOpts)
 
-var encoderCache sync.Map // map[reflect.Type]encoderFunc
-
 func valueEncoder(zibson *Zibson, v reflect.Value) encoderFunc {
 	if !v.IsValid() {
 		return invalidValueEncoder
@@ -358,7 +356,7 @@ func valueEncoder(zibson *Zibson, v reflect.Value) encoderFunc {
 }
 
 func typeEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
-	if fi, ok := encoderCache.Load(t); ok {
+	if fi, ok := zibson.EncodingCacheTypeToEncoderFunc.Load(t); ok {
 		return fi.(encoderFunc)
 	}
 
@@ -371,7 +369,7 @@ func typeEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
 		f  encoderFunc
 	)
 	wg.Add(1)
-	fi, loaded := encoderCache.LoadOrStore(t, encoderFunc(func(e *encodeState, v reflect.Value, opts encOpts) {
+	fi, loaded := zibson.EncodingCacheTypeToEncoderFunc.LoadOrStore(t, encoderFunc(func(e *encodeState, v reflect.Value, opts encOpts) {
 		wg.Wait()
 		f(e, v, opts)
 	}))
@@ -382,7 +380,7 @@ func typeEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
 	// Compute the real encoder and replace the indirect func with it.
 	f = newTypeEncoder(zibson, t, true)
 	wg.Done()
-	encoderCache.Store(t, f)
+	zibson.EncodingCacheTypeToEncoderFunc.Store(t, f)
 	return f
 }
 
@@ -658,7 +656,7 @@ func (se *structEncoder) encode(e *encodeState, v reflect.Value, opts encOpts) {
 }
 
 func newStructEncoder(zibson *Zibson, t reflect.Type) encoderFunc {
-	fields := cachedTypeFields(zibson, true, t)
+	fields := getCachedTypeFieldsForEncoding(zibson, t)
 	se := &structEncoder{
 		fields:    fields,
 		fieldEncs: make([]encoderFunc, len(fields)),
@@ -1295,13 +1293,19 @@ func dominantField(fields []field) (field, bool) {
 	return fields[0], true
 }
 
-var fieldCache sync.Map // map[reflect.Type][]field
-
 // cachedTypeFields is like typeFields but uses a cache to avoid repeated work.
-func cachedTypeFields(zibson *Zibson, isEncoding bool, t reflect.Type) []field {
+func cachedTypeFields(fieldCache sync.Map, zibson *Zibson, isEncoding bool, t reflect.Type) []field {
 	if f, ok := fieldCache.Load(t); ok {
 		return f.([]field)
 	}
 	f, _ := fieldCache.LoadOrStore(t, typeFields(zibson, t, isEncoding))
 	return f.([]field)
+}
+
+func getCachedTypeFieldsForDecoding(zibson *Zibson, t reflect.Type) []field {
+	return cachedTypeFields(zibson.DecodingCacheTypeToTypeFields, zibson, false, t)
+}
+
+func getCachedTypeFieldsForEncoding(zibson *Zibson, t reflect.Type) []field {
+	return cachedTypeFields(zibson.EncodingCacheTypeToTypeFields, zibson, true, t)
 }

@@ -713,7 +713,7 @@ func (d *decodeState) object(zibson *Zibson, v reflect.Value) error {
 			subv = mapElem
 		} else {
 			var f *field
-			fields := cachedTypeFields(zibson, false, v.Type())
+			fields := getCachedTypeFieldsForDecoding(zibson, v.Type())
 			for i := range fields {
 				ff := &fields[i]
 				if bytes.Equal(ff.nameBytes, key) {
