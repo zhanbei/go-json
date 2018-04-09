@@ -10,18 +10,32 @@ The customizable encoding/json package based on [`zhanbei/golang-encoding-json`]
 go get github.com/zhanbei/go-json
 ```
 
-## Features
+## Features and Limitations
 
-The goal is to add more customizable features while keeping compatible with the [`encoding/json`][package-encoding-json] package.
+The goal is to add more customizable features while keeping compatible with the `encoding/json` package. Hence it pretty much extends the pros and cons of `encoding/json`. The project added type `Zibson` which holds configures, stores caches, exposes methods, and can be found in [`zibson.go`](zibson.go). Features are:
 
 - [x] Customizable/Different tags(`fromJson`, `toJson`) for decoding from and encoding to JSON string.
-- [x] Customizable JSON struct tag(i.e. `customizedJsonTag`)
+- [x] Customizable JSON struct tag(i.e. `customizedJsonTag`).
 - [x] Customizable fall-back JSON struct tag(`json`).
 - [x] Customizable conversion policy to JSON keys from field names of a struct.
 
-### Differences with the [`encoding/json`][package-encoding-json] Package
+Tags will be checked in this order: `FromJsonTag/ToJsonTag > CustomJsonTag > DefaultJsonTag > FieldNameToJsonKeyFunc(fieldName) > FieldName`. Related codes can be found in [`encode#typeFields()`](encode.go#L1124).
+
+### Differences with the `encoding/json` Package
 
 - By default, the tags `fromJson` and `toJson` will be checked first respectively, over the tag `json`.
+
+### Synchronize and Merge the Go Source Code
+
+This package is based on [`zhanbei/golang-encoding-json`][project-upstream], which is *synchronized manually* from the [`encoding/json`][package-encoding-json] package separated from [`golang/go/master`][github-golang-go], so there are risks of not keeping up-to-date with the upstream.
+
+Currently the based-on project `zhanbei/golang-encoding-json` is up-to-date on 2018-04-09.
+
+## TODO
+
+- [ ] [`encode.go`] [FIXME] Pass the zibson instance to interfaceEncoder().
+- [ ] [`stream.go`] [FIXME] Pass the zibson instance to Decoder#Decode().
+- [ ] [`stream.go`] [FIXME] Pass the zibson instance to Encoder#Encode().
 
 ## Usage and Example
 
